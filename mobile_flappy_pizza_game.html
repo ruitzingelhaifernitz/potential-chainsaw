@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Flappy Pizza Game with Win Splash & Video - Mobile Friendly</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #222;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      height: 100%;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      position: relative;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      max-width: 480px;
+      max-height: 640px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    canvas {
+      background: #111;
+      border: 3px solid #555;
+      display: block;
+      width: 100%;  /* Responsive size */
+      height: auto; /* Maintain aspect ratio */
+      image-rendering: pixelated; /* Optional, keep pixel crisp */
+      touch-action: manipulation; /* Improves touch responsiveness */
+    }
+    #message {
+      position: absolute;
+      top: 20px;
+      width: 100%;
+      text-align: center;
+      font-size: 24px;
+      pointer-events: none;
+      color: #eee;
+      z-index: 3;
+      user-select: none;
+    }
+    #splash, #winSplash {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #1a1a1a, #444);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 5;
+      cursor: pointer;
+      user-select: none;
+    }
+    #splash h1, #winSplash h1 {
+      font-size: 48px;
+      margin: 0 0 20px;
+      color: #f7931e;
+      text-shadow: 2px 2px 6px #c63;
+    }
+    #splash p {
+      font-size: 20px;
+      margin: 8px 0;
+      color: #ddd;
+      text-align: center;
+      max-width: 300px;
+    }
+    #splash small, #winSplash small {
+      margin-top: 30px;
+      color: #aaa;
+      font-style: italic;
+    }
+    #winSplash video {
+      width: 688px;
+      max-width: 90vw;
+      height: auto;
+      border: 3px solid #f7931e;
+      border-radius: 10px;
+      background: black;
+      margin-bottom: 20px;
+    }
+    #winSplash button {
+      background: #f7931e;
+      border: none;
+      color: #222;
+      font-weight: bold;
+      font-size: 18px;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    #winSplash button:hover {
+      background: #e67e22;
+    }
+  </style>
+</head>
+<body>
+  <div id="message"></div>
+  <div id="canvas-container">
+    <canvas id="game" width="480" height="640"></canvas>
+  </div>
+
+  <!-- Start Splash Screen -->
+  <div id="splash">
+    <h1>Flappy Pizza</h1>
+    <p>Fly the frozen pizza into the oven.<br> Avoid the LIDL logos!</p>
+    <p><strong>Tap or press Space</strong> to start</p>
+    <small>Made with ❤️ by ChatGPT</small>
+  </div>
+
+  <!-- Win Splash Screen -->
+  <div id="winSplash" style="display:none; flex-direction: column; align-items: center;">
+    <h1>You Win!</h1>
+    <video id="winVideo" src="pepperonihat.mp4" controls autoplay loop muted playsinline></video>
+    <button id="restartBtn">Play Again</button>
+    <small>Enjoy the victory pizza!</small>
+  </div>
+
+  <script>
+  (() => {
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const messageEl = document.getElementById('message');
+    const splashEl = document.getElementById('splash');
+    const winSplashEl = document.getElementById('winSplash');
+    const restartBtn = document.getElementById('restartBtn');
+
+    const GRAVITY = 0.6;
+    const FLAP_STRENGTH = -10;
+    const OBSTACLE_SPEED = 2;
+    const OBSTACLE_GAP = 220;
+    const OBSTACLE_WIDTH = 40;
+    const PLAYER_RADIUS = 20;
+
+    const OVEN_NATURAL_WIDTH = 419;
+    const OVEN_NATURAL_HEIGHT = 392;
+    const OVEN_HEIGHT = 100;
+    const OVEN_WIDTH = Math.round(OVEN_HEIGHT * (OVEN_NATURAL_WIDTH / OVEN_NATURAL_HEIGHT));
+
+    const OVEN_TARGET_X = canvas.width - 140;
+
+    // Load images
+    const lidlLogoImg = new Image();
+    lidlLogoImg.src = 'LIDL_LOGO_cropped_40x40.png';
+
+    const ovenImg = new Image();
+    ovenImg.src = 'Oven_1.png';
+
+    const pizzaImg = new Image();
+    pizzaImg.src = 'SpinachAndPesto-3dTest.jpg';
+
+    let gameState = 'splash'; // 'splash', 'playing', 'gameover', 'win', 'frozen'
+
+    let player = {
+      x: 80,
+      y: canvas.height / 2,
+      vy: 0,
+      radius: PLAYER_RADIUS,
+    };
+
+    let obstacles = [];
+    let frameCount = 0;
+    let obstaclesPassed = 0;
+
+    const oven = {
+      x: canvas.width,
+      width: OVEN_WIDTH,
+      height: OVEN_HEIGHT,
+      y: 0,
+    };
+    let ovenYSet = false;
+
+    let winTimeout = null;
+
+    function resetGame() {
+      player.x = 80;
+      player.y = canvas.height / 2;
+      player.vy = 0;
+      obstacles = [];
+      frameCount = 0;
+      obstaclesPassed = 0;
+      ovenYSet = false;
+      oven.x = canvas.width;
+      messageEl.textContent = '';
+      if(winTimeout) {
+        clearTimeout(winTimeout);
+        winTimeout = null;
+      }
+    }
+
+    function createObstaclePair() {
