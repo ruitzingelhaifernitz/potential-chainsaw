@@ -130,280 +130,315 @@
     <small>Enjoy the victory pizza!</small>
   </div>
 
-<script>
-(() => {
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
-  const messageEl = document.getElementById('message');
-  const splashEl = document.getElementById('splash');
-  const winSplashEl = document.getElementById('winSplash');
-  const restartBtn = document.getElementById('restartBtn');
+  <script>
+  (() => {
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const messageEl = document.getElementById('message');
+    const splashEl = document.getElementById('splash');
+    const winSplashEl = document.getElementById('winSplash');
+    const restartBtn = document.getElementById('restartBtn');
 
-  const GRAVITY = 0.6;
-  const FLAP_STRENGTH = -10;
-  const OBSTACLE_SPEED = 2;
-  const OBSTACLE_GAP = 260;       // wider gap for easier passage
-  const OBSTACLE_WIDTH = 40;
-  const PLAYER_RADIUS = 20;
+    const GRAVITY = 0.6;
+    const FLAP_STRENGTH = -10;
+    const OBSTACLE_SPEED = 2;
+    const OBSTACLE_GAP = 250; // Widened gap for easier passage
+    const OBSTACLE_WIDTH = 40;
+    const PLAYER_RADIUS = 20;
 
-  const OVEN_NATURAL_WIDTH = 419;
-  const OVEN_NATURAL_HEIGHT = 392;
-  const OVEN_HEIGHT = 100;
-  const OVEN_WIDTH = Math.round(OVEN_HEIGHT * (OVEN_NATURAL_WIDTH / OVEN_NATURAL_HEIGHT));
+    const OVEN_NATURAL_WIDTH = 419;
+    const OVEN_NATURAL_HEIGHT = 392;
+    const OVEN_HEIGHT = 100;
+    const OVEN_WIDTH = Math.round(OVEN_HEIGHT * (OVEN_NATURAL_WIDTH / OVEN_NATURAL_HEIGHT));
+    const OVEN_TARGET_X = canvas.width - 140;
 
-  const OVEN_TARGET_X = canvas.width - 140;
+    // Load images
+    const lidlLogoImg = new Image();
+    lidlLogoImg.src = 'LIDL_LOGO_cropped_40x40.png';
 
-  // Load images
-  const lidlLogoImg = new Image();
-  lidlLogoImg.src = 'LIDL_LOGO_cropped_40x40.png';
+    const ovenImg = new Image();
+    ovenImg.src = 'Oven_1.png';
 
-  const ovenImg = new Image();
-  ovenImg.src = 'Oven_1.png';
+    const pizzaImg = new Image();
+    pizzaImg.src = 'SpinachAndPesto-3dTest.jpg';
 
-  const pizzaImg = new Image();
-  pizzaImg.src = 'SpinachAndPesto-3dTest.jpg';
+    let gameState = 'splash'; // 'splash', 'playing', 'gameover', 'win', 'frozen'
 
-  let state = 'splash'; // 'splash', 'playing', 'gameover', 'win', 'frozen'
+    let player = {
+      x: 80,
+      y: canvas.height / 2,
+      vy: 0,
+      radius: PLAYER_RADIUS,
+    };
 
-  let player = {
-    x: 80,
-    y: canvas.height / 2,
-    vy: 0,
-    radius: PLAYER_RADIUS,
-  };
+    let obstacles = [];
+    let frameCount = 0;
+    let obstaclesPassed = 0;
 
-  let obstacles = [];
-  let frameCount = 0;
-  let obstaclesPassed = 0;
+    const oven = {
+      x: canvas.width,
+      width: OVEN_WIDTH,
+      height: OVEN_HEIGHT,
+      y: 0,
+      visible: false,
+    };
+    let ovenYSet = false;
 
-  let ovenX = canvas.width;
-  let ovenY = 0;
-  let ovenVisible = false;
-  let ovenYSet = false;
-  let winTimeout = null;
+    let winTimeout = null;
 
-  function resetGame() {
-    player.x = 80;
-    player.y = canvas.height / 2;
-    player.vy = 0;
-    obstacles = [];
-    frameCount = 0;
-    obstaclesPassed = 0;
-    ovenVisible = false;
-    ovenX = canvas.width;
-    ovenYSet = false;
-    messageEl.textContent = '';
-    ovenY = 0;
-    if (winTimeout) {
-      clearTimeout(winTimeout);
-      winTimeout = null;
-    }
-  }
-
-  function createObstaclePair() {
-    // Create two logo walls, top and bottom, with a gap in between
-    const minGapY = 50;
-    const maxGapY = canvas.height - OBSTACLE_GAP - 50;
-    const gapY = Math.floor(Math.random() * (maxGapY - minGapY) + minGapY);
-    obstacles.push({ x: canvas.width, y: 0, width: OBSTACLE_WIDTH, height: gapY, passed: false });
-    obstacles.push({ x: canvas.width, y: gapY + OBSTACLE_GAP, width: OBSTACLE_WIDTH, height: canvas.height - gapY - OBSTACLE_GAP, passed: false });
-  }
-
-  function drawPlayer() {
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.clip();
-    ctx.drawImage(pizzaImg, player.x - player.radius, player.y - player.radius, player.radius * 2, player.radius * 2);
-    ctx.restore();
-  }
-
-  function drawOven() {
-    if (!ovenVisible) return;
-    ctx.drawImage(ovenImg, ovenX, ovenY, OVEN_WIDTH, OVEN_HEIGHT);
-  }
-
-  function drawObstacles() {
-    obstacles.forEach(obs => {
-      const tileCount = Math.ceil(obs.height / lidlLogoImg.height);
-      for (let i = 0; i < tileCount; i++) {
-        const tileY = obs.y + i * lidlLogoImg.height;
-        ctx.drawImage(lidlLogoImg, obs.x, tileY, OBSTACLE_WIDTH, lidlLogoImg.height);
-      }
-    });
-  }
-
-  function vibrate() {
-    if (navigator.vibrate) {
-      navigator.vibrate(50);
-    }
-  }
-
-  function endGame(msg) {
-    state = 'gameover';
-    messageEl.textContent = 'Game Over! ' + msg;
-    splashEl.style.display = 'none';
-  }
-
-  function update() {
-    if (state !== 'playing') return;
-
-    player.vy += GRAVITY;
-    player.y += player.vy;
-
-    if (player.y + player.radius > canvas.height) {
-      player.y = canvas.height - player.radius;
+    function resetGame() {
+      player.x = 80;
+      player.y = canvas.height / 2;
       player.vy = 0;
-      endGame('Hit the floor.');
-      return;
-    }
-    if (player.y - player.radius < 0) {
-      player.y = player.radius;
-      player.vy = 0;
-    }
-
-    // Move obstacles left
-    obstacles.forEach(obs => {
-      obs.x -= OBSTACLE_SPEED;
-    });
-
-    // Remove offscreen obstacles
-    obstacles = obstacles.filter(obs => obs.x + OBSTACLE_WIDTH > 0);
-
-    // Check obstacles passed (only count top obstacle to avoid double count)
-    obstacles.forEach((obs, i) => {
-      if (!obs.passed && i % 2 === 0 && (obs.x + OBSTACLE_WIDTH) < player.x) {
-        obstaclesPassed++;
-        obs.passed = true;
-      }
-    });
-
-    // Spawn new obstacle pairs until 4 passed
-    if (obstaclesPassed < 4 && frameCount % 110 === 0) {
-      createObstaclePair();
-    }
-
-    // Oven appears after every 4 walls passed
-    if (obstaclesPassed >= 4) {
-      if (!ovenYSet) {
-        ovenY = Math.floor(Math.random() * (canvas.height - OVEN_HEIGHT - 50)) + 25;
-        ovenYSet = true;
-        ovenVisible = true;
-        ovenX = canvas.width;
-      }
-      const dx = ovenX - OVEN_TARGET_X;
-      if (dx > 0.5) {
-        ovenX -= dx * 0.1;
-      } else {
-        ovenX = OVEN_TARGET_X;
-      }
-    } else {
-      ovenVisible = false;
+      obstacles = [];
+      frameCount = 0;
+      obstaclesPassed = 0;
       ovenYSet = false;
-      ovenX = canvas.width;
-    }
-
-    // Collision with obstacles (LIDL walls)
-    for (let obs of obstacles) {
-      const closestX = Math.max(obs.x, Math.min(player.x, obs.x + OBSTACLE_WIDTH));
-      const closestY = Math.max(obs.y, Math.min(player.y, obs.y + obs.height));
-      const dx = player.x - closestX;
-      const dy = player.y - closestY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < player.radius) {
-        endGame('Hit a LIDL logo.');
-        return;
+      oven.x = canvas.width;
+      oven.visible = false;
+      messageEl.textContent = '';
+      if(winTimeout) {
+        clearTimeout(winTimeout);
+        winTimeout = null;
       }
     }
 
-    // Oven collision & win check
-    if (ovenVisible && player.x + player.radius > ovenX && player.x - player.radius < ovenX + OVEN_WIDTH) {
-      if (player.y > ovenY && player.y < ovenY + OVEN_HEIGHT) {
-        state = 'frozen';
-        winTimeout = setTimeout(() => {
-          state = 'win';
-          winSplashEl.style.display = 'flex';
-        }, 600);
+    function createObstaclePair() {
+      const gapY = Math.floor(Math.random() * (canvas.height - OBSTACLE_GAP - 100) + 50);
+      // Top obstacle
+      obstacles.push({ 
+        x: canvas.width, 
+        y: 0, 
+        width: OBSTACLE_WIDTH, 
+        height: gapY, 
+        passed: false 
+      });
+      // Bottom obstacle
+      obstacles.push({ 
+        x: canvas.width, 
+        y: gapY + OBSTACLE_GAP, 
+        width: OBSTACLE_WIDTH, 
+        height: canvas.height - gapY - OBSTACLE_GAP, 
+        passed: false 
+      });
+    }
+
+    function drawPlayer() {
+      // Draw full pizza image square (no circle clipping)
+      ctx.drawImage(
+        pizzaImg,
+        player.x - player.radius,
+        player.y - player.radius,
+        player.radius * 2,
+        player.radius * 2
+      );
+    }
+
+    function drawOven() {
+      if (!oven.visible) return;
+      ctx.drawImage(
+        ovenImg,
+        oven.x,
+        oven.y,
+        oven.width,
+        oven.height
+      );
+    }
+
+    function drawObstacles() {
+      obstacles.forEach(obs => {
+        // Tile the LIDL logo image across the obstacle's width and height
+        const patternCols = Math.ceil(obs.width / lidlLogoImg.width);
+        const patternRows = Math.ceil(obs.height / lidlLogoImg.height);
+
+        for (let col = 0; col < patternCols; col++) {
+          for (let row = 0; row < patternRows; row++) {
+            const drawX = obs.x + col * lidlLogoImg.width;
+            const drawY = obs.y + row * lidlLogoImg.height;
+            ctx.drawImage(lidlLogoImg, drawX, drawY);
+          }
+        }
+      });
+    }
+
+    function update() {
+      if (gameState !== 'playing') return;
+
+      player.vy += GRAVITY;
+      player.y += player.vy;
+
+      // Boundaries
+      if (player.y + player.radius > canvas.height) {
+        player.y = canvas.height - player.radius;
+        player.vy = 0;
+        gameState = 'gameover';
+        messageEl.textContent = 'Game Over! Hit the floor.';
         return;
+      }
+      if (player.y - player.radius < 0) {
+        player.y = player.radius;
+        player.vy = 0;
+      }
+
+      // Move obstacles
+      obstacles.forEach(obs => {
+        obs.x -= OBSTACLE_SPEED;
+      });
+
+      // Remove offscreen obstacles
+      obstacles = obstacles.filter(obs => obs.x + obs.width > 0);
+
+      // Spawn new obstacles if less than 5 passed
+      if (frameCount % 90 === 0 && obstaclesPassed < 20) {
+        createObstaclePair();
+      }
+
+      // Mark obstacles passed (count only top obstacles)
+      obstacles.forEach((obs, i) => {
+        if (!obs.passed && i % 2 === 0 && (obs.x + obs.width) < player.x) {
+          obstaclesPassed++;
+          obs.passed = true;
+          navigator.vibrate?.(50);
+        }
+      });
+
+      // Oven logic: appear after every 4 pairs (8 obstacles)
+      if (obstaclesPassed > 0 && obstaclesPassed % 4 === 0 && !oven.visible) {
+        oven.visible = true;
+        oven.x = canvas.width;
+        oven.y = Math.floor(Math.random() * (canvas.height - oven.height - 100) + 50);
+        ovenYSet = true;
+      }
+
+      // Oven easing slide toward target
+      if (oven.visible) {
+        const dx = oven.x - OVEN_TARGET_X;
+        if (dx > 0.5) {
+          oven.x -= dx * 0.1;
+        } else {
+          oven.x = OVEN_TARGET_X;
+        }
+      }
+
+      // Oven disappears after passing
+      if (oven.visible && player.x > oven.x + oven.width) {
+        oven.visible = false;
+      }
+
+      // Collision detection with obstacles
+      for (let obs of obstacles) {
+        let closestX = Math.max(obs.x, Math.min(player.x, obs.x + obs.width));
+        let closestY = Math.max(obs.y, Math.min(player.y, obs.y + obs.height));
+        let dx = player.x - closestX;
+        let dy = player.y - closestY;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < player.radius) {
+          gameState = 'gameover';
+          messageEl.textContent = 'Game Over! Hit a LIDL logo.';
+          return;
+        }
+      }
+
+      // Collision with oven
+      if (oven.visible) {
+        if (player.x > oven.x && player.x < oven.x + oven.width) {
+          if (player.y > oven.y && player.y < oven.y + oven.height) {
+            gameState = 'frozen'; // freeze player
+            messageEl.textContent = '';
+            if (winTimeout) clearTimeout(winTimeout);
+            winTimeout = setTimeout(() => {
+              gameState = 'win';
+              showWinSplash();
+            }, 1000);
+            return;
+          }
+        }
+      }
+
+      frameCount++;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawObstacles();
+      drawOven();
+      drawPlayer();
+    }
+
+    function flap() {
+      if (gameState === 'splash') return;
+      if (gameState === 'gameover') {
+        resetGame();
+        gameState = 'playing';
+        messageEl.textContent = '';
+        hideWinSplash();
+        return;
+      }
+      if (gameState === 'win' || gameState === 'frozen') {
+        // no flapping after win or during frozen
+        return;
+      }
+      player.vy = FLAP_STRENGTH;
+      player.x += 10;
+      navigator.vibrate?.(30);
+    }
+
+    function startGame() {
+      if (gameState === 'splash') {
+        resetGame();
+        gameState = 'playing';
+        splashEl.style.display = 'none';
+        messageEl.textContent = '';
       }
     }
 
-    frameCount++;
-  }
-
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawObstacles();
-    drawOven();
-    drawPlayer();
-  }
-
-  function flap() {
-    if (state === 'splash') return;
-    if (state === 'gameover') {
-      resetGame();
-      state = 'playing';
-      messageEl.textContent = '';
-      winSplashEl.style.display = 'none';
-      return;
+    function showWinSplash() {
+      canvas.style.display = 'none';
+      winSplashEl.style.display = 'flex';
     }
-    if (state === 'win') return;
-    if (state === 'frozen') return;
-    player.vy = FLAP_STRENGTH;
-    player.x += 10;
-    vibrate();
-  }
 
-  function startGame() {
-    if (state === 'splash') {
-      resetGame();
-      state = 'playing';
-      splashEl.style.display = 'none';
-      messageEl.textContent = '';
+    function hideWinSplash() {
+      canvas.style.display = 'block';
       winSplashEl.style.display = 'none';
     }
-  }
 
-  restartBtn.addEventListener('click', () => {
-    resetGame();
-    state = 'playing';
-    messageEl.textContent = '';
-    winSplashEl.style.display = 'none';
-    splashEl.style.display = 'none';
-  });
-
-  // Input handlers for tap/click and spacebar:
-  function inputHandler(e) {
-    e.preventDefault();
-    if (state === 'splash') {
-      startGame();
-    } else {
-      flap();
+    // Input handlers for tap, click, and spacebar
+    function handleInput(e) {
+      if (gameState === 'splash') {
+        startGame();
+      } else {
+        flap();
+      }
+      e.preventDefault();
     }
-  }
 
-  window.addEventListener('keydown', e => {
-    if (e.code === 'Space') {
-      inputHandler(e);
+    splashEl.addEventListener('click', handleInput);
+    canvas.addEventListener('mousedown', handleInput);
+    canvas.addEventListener('touchstart', handleInput, { passive: false });
+    window.addEventListener('keydown', e => {
+      if (e.code === 'Space') {
+        handleInput(e);
+      }
+    });
+
+    restartBtn.addEventListener('click', () => {
+      resetGame();
+      gameState = 'playing';
+      messageEl.textContent = '';
+      hideWinSplash();
+    });
+
+    function loop() {
+      if (gameState === 'playing' || gameState === 'frozen') {
+        update();
+      }
+      draw();
+      requestAnimationFrame(loop);
     }
-  });
 
-  // Add listener to entire body to catch taps/clicks anywhere
-  document.body.addEventListener('mousedown', inputHandler);
-  document.body.addEventListener('touchstart', inputHandler);
+    loop();
 
-  function loop() {
-    if (state === 'playing') {
-      update();
-    }
-    draw();
-    requestAnimationFrame(loop);
-  }
-
-  loop();
-
-})();
-</script>
+  })();
+  </script>
 </body>
 </html>
