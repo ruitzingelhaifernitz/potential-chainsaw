@@ -3,227 +3,141 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>Flappy Pizza Game with Win Splash & Video - Mobile Friendly</title>
+  <title>Flappy Pizza Game</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
       background: #222;
-      color: #fff;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       height: 100%;
       overflow: hidden;
-      -webkit-tap-highlight-color: transparent;
-    }
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      user-select: none;
-      position: relative;
+      font-family: sans-serif;
     }
     #canvas-container {
       width: 100vw;
       height: 100vh;
       max-width: 480px;
       max-height: 640px;
+      margin: auto;
       display: flex;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
     }
     canvas {
-      background: #111;
-      border: 3px solid #555;
-      display: block;
       width: 100%;
       height: auto;
+      display: block;
       image-rendering: pixelated;
-      touch-action: manipulation;
-    }
-    #message {
-      position: absolute;
-      top: 20px;
-      width: 100%;
-      text-align: center;
-      font-size: 24px;
-      pointer-events: none;
-      color: #eee;
-      z-index: 3;
-      user-select: none;
+      background: #111;
     }
     #splash, #winSplash {
       position: absolute;
       top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, #1a1a1a, #444);
+      width: 100%; height: 100%;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 5;
-      cursor: pointer;
-      user-select: none;
-    }
-    #splash h1, #winSplash h1 {
-      font-size: 48px;
-      margin: 0 0 20px;
-      color: #f7931e;
-      text-shadow: 2px 2px 6px #c63;
-    }
-    #splash p {
-      font-size: 20px;
-      margin: 8px 0;
-      color: #ddd;
+      background: rgba(0,0,0,0.8);
+      color: white;
       text-align: center;
-      max-width: 300px;
-    }
-    #splash small, #winSplash small {
-      margin-top: 30px;
-      color: #aaa;
-      font-style: italic;
+      z-index: 10;
     }
     #winSplash video {
-      width: 688px;
-      max-width: 90vw;
-      height: auto;
-      border: 3px solid #f7931e;
-      border-radius: 10px;
-      background: black;
+      width: 90%;
+      max-width: 640px;
+      border-radius: 8px;
       margin-bottom: 20px;
     }
     #winSplash button {
-      background: #f7931e;
-      border: none;
-      color: #222;
-      font-weight: bold;
-      font-size: 18px;
       padding: 10px 20px;
+      font-size: 18px;
+      background: orange;
+      border: none;
       border-radius: 6px;
       cursor: pointer;
-      transition: background 0.3s ease;
-    }
-    #winSplash button:hover {
-      background: #e67e22;
     }
   </style>
 </head>
 <body>
-  <div id="message"></div>
   <div id="canvas-container">
     <canvas id="game" width="480" height="640"></canvas>
   </div>
 
   <div id="splash">
     <h1>Flappy Pizza</h1>
-    <p>Fly the frozen pizza into the oven.<br> Avoid the LIDL logos!</p>
-    <p><strong>Tap or press Space</strong> to start</p>
-    <small>Made with ❤️ by ChatGPT</small>
+    <p>Tap / click / spacebar to flap!</p>
   </div>
 
-  <div id="winSplash" style="display:none; flex-direction: column; align-items: center;">
+  <div id="winSplash" style="display:none;">
     <h1>You Win!</h1>
-    <video id="winVideo" src="pepperonihat.mp4" controls autoplay loop muted playsinline></video>
+    <video src="pepperonihat.mp4" autoplay loop muted playsinline></video>
     <button id="restartBtn">Play Again</button>
-    <small>Enjoy the victory pizza!</small>
   </div>
 
   <script>
   (() => {
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
-    const messageEl = document.getElementById('message');
-    const splashEl = document.getElementById('splash');
-    const winSplashEl = document.getElementById('winSplash');
-    const restartBtn = document.getElementById('restartBtn');
-
-    const GRAVITY = 0.6;
-    const FLAP_STRENGTH = -10;
-    const OBSTACLE_SPEED = 2;
-    const OBSTACLE_GAP = 220;
-    const OBSTACLE_WIDTH = 40;
-    const PLAYER_RADIUS = 20;
-
-    const OVEN_NATURAL_WIDTH = 419;
-    const OVEN_NATURAL_HEIGHT = 392;
-    const OVEN_HEIGHT = 100;
-    const OVEN_WIDTH = Math.round(OVEN_HEIGHT * (OVEN_NATURAL_WIDTH / OVEN_NATURAL_HEIGHT));
-
-    const OVEN_TARGET_X = canvas.width - 140;
-
-    const lidlLogoImg = new Image();
-    lidlLogoImg.src = 'LIDL_LOGO_cropped_40x40.png';
-
-    const ovenImg = new Image();
-    ovenImg.src = 'Oven_1.png';
 
     const pizzaImg = new Image();
     pizzaImg.src = 'SpinachAndPesto-3dTest.jpg';
 
-    let gameState = 'splash';
-    let frameCount = 0;
+    const ovenImg = new Image();
+    ovenImg.src = 'Oven_1.png';
+
+    const lidlImg = new Image();
+    lidlImg.src = 'LIDL_LOGO_cropped_40x40.png';
+
+    const splash = document.getElementById('splash');
+    const winSplash = document.getElementById('winSplash');
+    const restartBtn = document.getElementById('restartBtn');
+
+    const GRAVITY = 0.5;
+    const FLAP = -8;
+    const GAP = 180;
+    const OBSTACLE_INTERVAL = 90;
+    const PLAYER_RADIUS = 20;
+    const OVEN_WIDTH = 107;
+    const OVEN_HEIGHT = 100;
+
+    let player = { x: 80, y: 320, vy: 0 };
+    let frame = 0;
     let obstacles = [];
-    let obstaclesPassed = 0;
-    let ovenYSet = false;
-    let winTimeout = null;
+    let ovens = [];
+    let flapCount = 0;
+    let passed = 0;
+    let gameState = 'splash';
 
-    const player = {
-      x: 80,
-      y: canvas.height / 2,
-      vy: 0,
-      radius: PLAYER_RADIUS
-    };
-
-    const oven = {
-      x: canvas.width,
-      width: OVEN_WIDTH,
-      height: OVEN_HEIGHT,
-      y: 0
-    };
-
-    function resetGame() {
-      player.y = canvas.height / 2;
+    function reset() {
+      player.y = 320;
       player.vy = 0;
       obstacles = [];
-      frameCount = 0;
-      obstaclesPassed = 0;
-      oven.x = canvas.width;
-      ovenYSet = false;
-      messageEl.textContent = '';
-      if (winTimeout) {
-        clearTimeout(winTimeout);
-        winTimeout = null;
-      }
-    }
-
-    function createObstaclePair() {
-      const gapY = Math.random() * (canvas.height - OBSTACLE_GAP - 100) + 50;
-      obstacles.push({
-        x: canvas.width,
-        top: gapY,
-        bottom: gapY + OBSTACLE_GAP,
-        passed: false
-      });
+      ovens = [];
+      frame = 0;
+      passed = 0;
     }
 
     function flap() {
-      if (gameState === 'playing') {
-        player.vy = FLAP_STRENGTH;
-        if (navigator.vibrate) navigator.vibrate(50); // vibrate for 50ms
-      }
+      player.vy = FLAP;
+      if (navigator.vibrate) navigator.vibrate(50);
     }
 
-    function handleInput() {
-      if (gameState === 'splash') {
-        splashEl.style.display = 'none';
-        gameState = 'playing';
-        resetGame();
-      } else if (gameState === 'playing') {
-        flap();
-      } else if (gameState === 'gameover' || gameState === 'win') {
-        splashEl.style.display = 'flex';
-        winSplashEl.style.display = 'none';
-        gameState = 'splash';
+    function addObstacle() {
+      const top = Math.random() * (canvas.height - GAP - 100) + 20;
+      obstacles.push({
+        x: canvas.width,
+        top,
+        bottom: top + GAP,
+        passed: false
+      });
+
+      if (obstacles.length % 4 === 0) {
+        ovens.push({
+          x: canvas.width + 60,
+          y: canvas.height - OVEN_HEIGHT,
+          hit: false
+        });
       }
     }
 
@@ -233,99 +147,112 @@
       player.vy += GRAVITY;
       player.y += player.vy;
 
-      if (frameCount % 90 === 0) createObstaclePair();
+      if (frame % OBSTACLE_INTERVAL === 0) addObstacle();
 
-      for (let obs of obstacles) obs.x -= OBSTACLE_SPEED;
-      obstacles = obstacles.filter(obs => obs.x + OBSTACLE_WIDTH > 0);
+      for (let obs of obstacles) obs.x -= 2;
+      for (let oven of ovens) oven.x -= 2;
+
+      // Remove offscreen
+      obstacles = obstacles.filter(obs => obs.x + 40 > 0);
+      ovens = ovens.filter(o => o.x + OVEN_WIDTH > 0);
 
       for (let obs of obstacles) {
+        // Collision
         if (
-          player.x + player.radius > obs.x &&
-          player.x - player.radius < obs.x + OBSTACLE_WIDTH
+          player.x + PLAYER_RADIUS > obs.x &&
+          player.x - PLAYER_RADIUS < obs.x + 40 &&
+          (player.y - PLAYER_RADIUS < obs.top || player.y + PLAYER_RADIUS > obs.bottom)
         ) {
-          if (player.y - player.radius < obs.top || player.y + player.radius > obs.bottom) {
-            gameState = 'gameover';
-            messageEl.textContent = 'Game Over!';
-            return;
-          }
+          gameState = 'dead';
         }
 
-        if (!obs.passed && obs.x + OBSTACLE_WIDTH < player.x) {
+        if (!obs.passed && obs.x + 40 < player.x) {
           obs.passed = true;
-          obstaclesPassed++;
+          passed++;
         }
       }
 
-      if (obstaclesPassed >= 5 && !ovenYSet) {
-        oven.y = canvas.height - oven.height;
-        ovenYSet = true;
-      }
-
-      if (ovenYSet) {
-        oven.x -= OBSTACLE_SPEED;
-        if (
-          player.x + player.radius > oven.x &&
-          player.x - player.radius < oven.x + oven.width &&
-          player.y + player.radius > oven.y
+      for (let oven of ovens) {
+        if (!oven.hit &&
+          player.x + PLAYER_RADIUS > oven.x &&
+          player.x - PLAYER_RADIUS < oven.x + OVEN_WIDTH &&
+          player.y + PLAYER_RADIUS > oven.y
         ) {
-          gameState = 'frozen';
+          oven.hit = true;
+          gameState = 'win';
           setTimeout(() => {
-            gameState = 'win';
-            winSplashEl.style.display = 'flex';
-            winSplashEl.querySelector('video').play();
-          }, 1000); // freeze for 1 sec
+            winSplash.style.display = 'flex';
+          }, 1000);
         }
       }
 
-      if (player.y + player.radius > canvas.height || player.y - player.radius < 0) {
-        gameState = 'gameover';
-        messageEl.textContent = 'Game Over!';
+      if (player.y + PLAYER_RADIUS > canvas.height || player.y - PLAYER_RADIUS < 0) {
+        gameState = 'dead';
       }
 
-      frameCount++;
+      frame++;
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#222';
+      ctx.fillStyle = '#111';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      // Player (circular pizza)
       ctx.save();
       ctx.beginPath();
-      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-      ctx.closePath();
+      ctx.arc(player.x, player.y, PLAYER_RADIUS, 0, Math.PI * 2);
       ctx.clip();
-      ctx.drawImage(pizzaImg, player.x - player.radius, player.y - player.radius, player.radius * 2, player.radius * 2);
+      ctx.drawImage(pizzaImg, player.x - PLAYER_RADIUS, player.y - PLAYER_RADIUS, PLAYER_RADIUS * 2, PLAYER_RADIUS * 2);
       ctx.restore();
 
+      // Obstacles (tiled LIDL logos)
       for (let obs of obstacles) {
-        ctx.drawImage(lidlLogoImg, obs.x, 0, OBSTACLE_WIDTH, obs.top);
-        ctx.drawImage(lidlLogoImg, obs.x, obs.bottom, OBSTACLE_WIDTH, canvas.height - obs.bottom);
+        // Top wall
+        for (let y = 0; y < obs.top; y += 40) {
+          ctx.drawImage(lidlImg, obs.x, y, 40, 40);
+        }
+        // Bottom wall
+        for (let y = obs.bottom; y < canvas.height; y += 40) {
+          ctx.drawImage(lidlImg, obs.x, y, 40, 40);
+        }
       }
 
-      if (ovenYSet) {
-        ctx.drawImage(ovenImg, oven.x, oven.y, oven.width, oven.height);
+      // Ovens
+      for (let oven of ovens) {
+        ctx.drawImage(ovenImg, oven.x, oven.y, OVEN_WIDTH, OVEN_HEIGHT);
       }
     }
 
-    function loop() {
+    function gameLoop() {
       update();
       draw();
-      requestAnimationFrame(loop);
+      requestAnimationFrame(gameLoop);
     }
 
-    window.addEventListener('keydown', e => {
+    function handleInput() {
+      if (gameState === 'splash') {
+        splash.style.display = 'none';
+        gameState = 'playing';
+        reset();
+      } else if (gameState === 'playing') {
+        flap();
+      } else {
+        winSplash.style.display = 'none';
+        splash.style.display = 'flex';
+        gameState = 'splash';
+      }
+    }
+
+    document.addEventListener('keydown', e => {
       if (e.code === 'Space') handleInput();
     });
-    canvas.addEventListener('pointerdown', handleInput);
-    splashEl.addEventListener('pointerdown', handleInput);
-    restartBtn.addEventListener('click', () => {
-      winSplashEl.style.display = 'none';
-      splashEl.style.display = 'flex';
-      gameState = 'splash';
-    });
 
-    pizzaImg.onload = () => loop();
+    canvas.addEventListener('pointerdown', handleInput);
+    splash.addEventListener('pointerdown', handleInput);
+    restartBtn.addEventListener('click', handleInput);
+
+    pizzaImg.onload = () => gameLoop();
   })();
   </script>
 </body>
