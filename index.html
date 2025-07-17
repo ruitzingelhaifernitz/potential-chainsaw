@@ -22,6 +22,7 @@
       justify-content: center;
       align-items: center;
       margin: auto;
+      position: relative;
     }
     canvas {
       background: #111;
@@ -29,6 +30,19 @@
       width: 100%;
       height: auto;
       image-rendering: pixelated;
+    }
+    #message {
+      position: absolute;
+      top: 15px;
+      width: 100%;
+      text-align: center;
+      font-size: 22px;
+      color: #f7931e;
+      text-shadow: 0 0 4px #c63;
+      user-select: none;
+      pointer-events: none;
+      z-index: 10;
+      font-weight: bold;
     }
     #splash, #winSplash {
       position: absolute;
@@ -89,6 +103,7 @@
 <body>
   <div id="canvas-container">
     <canvas id="game" width="480" height="640"></canvas>
+    <div id="message"></div>
   </div>
 
   <div id="splash">
@@ -113,11 +128,12 @@
     const winSplashEl = document.getElementById('winSplash');
     const restartBtn = document.getElementById('restartBtn');
     const winVideo = document.getElementById('winVideo');
+    const messageEl = document.getElementById('message');
 
     const GRAVITY = 0.6;
     const FLAP_STRENGTH = -10;
     const OBSTACLE_SPEED = 2;
-    const OBSTACLE_GAP = 280;  // Increased gap for easier navigation
+    const OBSTACLE_GAP = 280;  // Wider gap for easier flying
     const OBSTACLE_WIDTH = 40;
 
     const OVEN_NATURAL_WIDTH = 419;
@@ -138,6 +154,7 @@
     let state = 'splash'; // splash, playing, frozen, win
     let player, obstacles, frameCount, ovenX, ovenY, ovenVisible, obstaclesPassed;
     let winTimeout = null;
+    let messageTimeout = null;
 
     function resetGame() {
       player = { x: 80, y: canvas.height / 2, vy: 0 };
@@ -147,10 +164,25 @@
       ovenY = null;
       ovenVisible = false;
       obstaclesPassed = 0;
+      clearMessage();
       if (winTimeout) {
         clearTimeout(winTimeout);
         winTimeout = null;
       }
+    }
+
+    function showMessage(text, duration = 2000) {
+      messageEl.textContent = text;
+      if (messageTimeout) clearTimeout(messageTimeout);
+      messageTimeout = setTimeout(() => {
+        messageEl.textContent = '';
+      }, duration);
+    }
+
+    function clearMessage() {
+      messageEl.textContent = '';
+      if (messageTimeout) clearTimeout(messageTimeout);
+      messageTimeout = null;
     }
 
     function flap() {
@@ -239,13 +271,11 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       obstacles.forEach(obs => {
-        // top walls
         if (obs.y === 0) {
           for (let y = 0; y < obs.height; y += 40) {
             ctx.drawImage(lidlLogo, obs.x, y, 40, 40);
           }
         } else {
-          // bottom walls
           for (let y = obs.y; y < obs.y + obs.height; y += 40) {
             ctx.drawImage(lidlLogo, obs.x, y, 40, 40);
           }
@@ -276,7 +306,12 @@
       }
     }
 
-    // Listen on the whole body to catch taps anywhere
+    function endGame(msg) {
+      showMessage(msg);
+      state = 'splash';
+      splashEl.style.display = 'flex';
+    }
+
     document.body.addEventListener('click', e => {
       e.preventDefault();
       if (state === 'splash' || state === 'win') {
