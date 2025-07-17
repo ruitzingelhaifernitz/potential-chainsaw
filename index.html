@@ -210,7 +210,6 @@
   }
 
   function drawPlayer() {
-    // Draw pizza image as a circle shape without outline
     ctx.save();
     ctx.beginPath();
     ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
@@ -227,7 +226,6 @@
 
   function drawObstacles() {
     obstacles.forEach(obs => {
-      // Tile the LIDL logo image vertically for the obstacle height
       const tileCount = Math.ceil(obs.height / lidlLogoImg.height);
       for (let i = 0; i < tileCount; i++) {
         const tileY = obs.y + i * lidlLogoImg.height;
@@ -245,6 +243,7 @@
   function endGame(msg) {
     state = 'gameover';
     messageEl.textContent = 'Game Over! ' + msg;
+    splashEl.style.display = 'none';
   }
 
   function update() {
@@ -253,14 +252,12 @@
     player.vy += GRAVITY;
     player.y += player.vy;
 
-    // Boundaries - floor
     if (player.y + player.radius > canvas.height) {
       player.y = canvas.height - player.radius;
       player.vy = 0;
       endGame('Hit the floor.');
       return;
     }
-    // ceiling
     if (player.y - player.radius < 0) {
       player.y = player.radius;
       player.vy = 0;
@@ -274,7 +271,7 @@
     // Remove offscreen obstacles
     obstacles = obstacles.filter(obs => obs.x + OBSTACLE_WIDTH > 0);
 
-    // Check obstacles passed
+    // Check obstacles passed (only count top obstacle to avoid double count)
     obstacles.forEach((obs, i) => {
       if (!obs.passed && i % 2 === 0 && (obs.x + OBSTACLE_WIDTH) < player.x) {
         obstaclesPassed++;
@@ -295,7 +292,6 @@
         ovenVisible = true;
         ovenX = canvas.width;
       }
-      // Slide oven left with easing toward target x
       const dx = ovenX - OVEN_TARGET_X;
       if (dx > 0.5) {
         ovenX -= dx * 0.1;
@@ -331,7 +327,6 @@
         }, 600);
         return;
       }
-      // No penalty for passing oven without collision
     }
 
     frameCount++;
@@ -353,11 +348,8 @@
       winSplashEl.style.display = 'none';
       return;
     }
-    if (state === 'win') {
-      // Do nothing, force restart by button
-      return;
-    }
-    if (state === 'frozen') return; // freeze on win animation delay
+    if (state === 'win') return;
+    if (state === 'frozen') return;
     player.vy = FLAP_STRENGTH;
     player.x += 10;
     vibrate();
@@ -378,6 +370,7 @@
     state = 'playing';
     messageEl.textContent = '';
     winSplashEl.style.display = 'none';
+    splashEl.style.display = 'none';
   });
 
   // Input handlers for tap/click and spacebar:
@@ -396,8 +389,9 @@
     }
   });
 
-  canvas.addEventListener('mousedown', inputHandler);
-  canvas.addEventListener('touchstart', inputHandler);
+  // Add listener to entire body to catch taps/clicks anywhere
+  document.body.addEventListener('mousedown', inputHandler);
+  document.body.addEventListener('touchstart', inputHandler);
 
   function loop() {
     if (state === 'playing') {
